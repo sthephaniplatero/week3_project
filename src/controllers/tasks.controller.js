@@ -1,45 +1,60 @@
-let tasks = [
-  { id: 1, title: 'Learn Express', done: false },
-  { id: 2, title: 'Build a REST API', done: false },
-];
-let nextId = 3;
+const Task = require('../models/task.model');
 
-const getTasks = (req, res) => {
-  res.json(tasks);
+const getTasks = async (req, res, next) => {
+  try {
+    const tasks = await Task.find();
+    res.json(tasks);
+  } catch (err) {
+    next(err);
+  }
 };
 
-const getTaskById = (req, res) => {
-  const task = tasks.find((t) => t.id === Number(req.params.id));
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-  res.json(task);
+const getTaskById = async (req, res, next) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json(task);
+  } catch (err) {
+    next(err);
+  }
 };
 
-const createTask = (req, res) => {
-  const { title, done = false } = req.body;
-  if (!title) return res.status(400).json({ error: 'title is required' });
-
-  const task = { id: nextId++, title, done };
-  tasks.push(task);
-  res.status(201).json(task);
+const createTask = async (req, res, next) => {
+  try {
+    const { title, done } = req.body;
+    const task = await Task.create({ title, done });
+    res.status(201).json(task);
+  } catch (err) {
+    next(err);
+  }
 };
 
-const updateTask = (req, res) => {
-  const task = tasks.find((t) => t.id === Number(req.params.id));
-  if (!task) return res.status(404).json({ error: 'Task not found' });
+const updateTask = async (req, res, next) => {
+  try {
+    const { title, done } = req.body;
+    const update = {};
+    if (title !== undefined) update.title = title;
+    if (done !== undefined) update.done = done;
 
-  const { title, done } = req.body;
-  if (title !== undefined) task.title = title;
-  if (done !== undefined) task.done = done;
-
-  res.json(task);
+    const task = await Task.findByIdAndUpdate(req.params.id, update, {
+      new: true,
+      runValidators: true,
+    });
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json(task);
+  } catch (err) {
+    next(err);
+  }
 };
 
-const deleteTask = (req, res) => {
-  const index = tasks.findIndex((t) => t.id === Number(req.params.id));
-  if (index === -1) return res.status(404).json({ error: 'Task not found' });
-
-  tasks.splice(index, 1);
-  res.status(204).send();
+const deleteTask = async (req, res, next) => {
+  try {
+    const task = await Task.findByIdAndDelete(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
 };
 
 module.exports = { getTasks, getTaskById, createTask, updateTask, deleteTask };

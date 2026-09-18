@@ -135,6 +135,66 @@ curl -X PUT http://localhost:3000/tasks/1 \
 curl -X DELETE http://localhost:3000/tasks/1
 ```
 
+## Testing
+
+The two required routes — `GET /tasks` and `POST /tasks` — were tested manually
+against a running local server. Actual results:
+
+**`GET /tasks`**
+
+Request:
+
+```bash
+curl http://localhost:3000/tasks
+```
+
+Response — `200 OK`:
+
+```json
+[
+  { "id": 1, "title": "Learn Express", "done": false },
+  { "id": 2, "title": "Build a REST API", "done": false }
+]
+```
+
+**`POST /tasks`**
+
+Request:
+
+```bash
+curl -X POST http://localhost:3000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Buy groceries"}'
+```
+
+Response — `201 Created`:
+
+```json
+{ "id": 3, "title": "Buy groceries", "done": false }
+```
+
+Calling `GET /tasks` again afterward confirms the new task was persisted:
+
+```json
+[
+  { "id": 1, "title": "Learn Express", "done": false },
+  { "id": 2, "title": "Build a REST API", "done": false },
+  { "id": 3, "title": "Buy groceries", "done": false }
+]
+```
+
+Error case — `POST /tasks` with no `title` correctly returns `400 Bad Request`:
+
+```bash
+curl -X POST http://localhost:3000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+```json
+{ "error": "title is required" }
+```
+
 ## Project structure
 
 ```

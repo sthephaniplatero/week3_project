@@ -12,8 +12,9 @@ const idParam = {
   name: 'id',
   in: 'path',
   required: true,
-  description: 'MongoDB ObjectId of the task',
-  schema: { type: 'string', example: '651f1f1f1f1f1f1f1f1f1f1f' },
+  description:
+    'The task `_id` (24-character hex string). Copy it from the response of POST /tasks or GET /tasks, without quotes.',
+  schema: { type: 'string' },
 };
 
 module.exports = {

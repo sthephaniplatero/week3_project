@@ -23,6 +23,16 @@ Edit `.env` and set `MONGODB_URI` to your connection string, e.g.:
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<database>
 ```
 
+`.env` is listed in `.gitignore` and must never be committed.
+
+If the server fails locally with `querySrv ECONNREFUSED`, your router's DNS is
+rejecting the SRV lookup for `mongodb+srv://` URIs. Add this line to your local
+`.env` (not needed on Render):
+
+```
+DNS_SERVERS=8.8.8.8,1.1.1.1
+```
+
 ## Running
 
 ```bash
@@ -45,7 +55,30 @@ It then listens on `http://localhost:3000` by default (configurable via `PORT`).
 | `createdAt` | Date    | set automatically                           |
 | `updatedAt` | Date    | set automatically                           |
 
+## Interactive documentation and testing (Swagger)
+
+Swagger UI is served by the API itself:
+
+- Local: http://localhost:3000/api-docs
+- Raw OpenAPI spec: `/api-docs.json`
+
+Open `/api-docs`, expand a route, click **Try it out**, fill in the parameters or
+body, and press **Execute** to send a real request and see the response. A full
+test flow: `POST /tasks` → copy the returned `_id` → `GET /tasks/{id}` →
+`PUT /tasks/{id}` → `DELETE /tasks/{id}` → `GET /tasks/{id}` (404). The spec
+lives in `src/docs/openapi.js`.
+
 ## Endpoints
+
+### API root
+
+**GET** `/`
+
+Response `200`:
+
+```json
+{ "message": "Tasks API is running", "health": "/health", "tasks": "/tasks" }
+```
 
 ### Health check
 
@@ -156,7 +189,9 @@ same way as creates.
 Centralized in `src/middleware/errorHandler.js`, registered last in `app.js`:
 
 - **`ValidationError`** (failed schema validation) → `400` with the validation message(s).
-- **`CastError`** (malformed ObjectId in `:id`) → `400` with the invalid value.
+- **`CastError`** (malformed ObjectId in `:id`, or a wrong type such as `"done": "maybe"`) → `400`
+  with a message like `Invalid id: abc` or `Invalid value for 'done': maybe`.
+- **Malformed JSON body** → `400 { "error": "Invalid JSON in request body" }`.
 - **Unmatched routes** → `404` via the `notFound` middleware.
 - **Anything else** → logged to the console and returned as `500 { "error": "Internal server error" }`.
 
@@ -197,6 +232,18 @@ After exercising the endpoints above, confirm the changes landed in the database
 5. Because data is persisted (not in-memory), tasks survive a server restart —
    restarting and re-running `GET /tasks` should still show previously created tasks.
 
+## Deploying to Render
+
+1. Push the repo to GitHub.
+2. In Render, create a new **Web Service** and connect the repository.
+3. Settings: Build Command `npm install`, Start Command `npm start`.
+4. Under **Environment**, add the config var `MONGODB_URI` (same value as your local `.env`).
+   Do not set `PORT` — Render provides it.
+5. In MongoDB Atlas → Network Access, allow connections from Render
+   (e.g. `0.0.0.0/0`), otherwise the service cannot reach the cluster.
+
+Live API: https://week3-project-b5y1.onrender.com — Swagger UI at https://week3-project-b5y1.onrender.com/api-docs
+
 ## Project structure
 
 ```
@@ -205,6 +252,8 @@ src/
 ├── app.js                      # Express app configuration, error handling wiring
 ├── config/
 │   └── db.js                   # Mongoose connection
+├── docs/
+│   └── openapi.js              # OpenAPI 3 spec served by Swagger UI at /api-docs
 ├── models/
 │   └── task.model.js           # Task schema/model + validation rules
 ├── routes/

@@ -1,5 +1,18 @@
 const getRoot = (req, res) => {
-  res.json({ message: 'Tasks API is running', health: '/health', tasks: '/tasks' });
+  const loggedIn = Boolean(req.isAuthenticated && req.isAuthenticated());
+  res.json({
+    message: 'Tasks API is running',
+    health: '/health',
+    docs: '/api-docs',
+    tasks: '/tasks',
+    auth: {
+      loggedIn,
+      user: loggedIn ? req.user.username : null,
+      login: loggedIn ? undefined : '/auth/github',
+      logout: loggedIn ? '/auth/logout' : undefined,
+      profile: '/auth/profile',
+    },
+  });
 };
 
 const getHealth = (req, res) => {

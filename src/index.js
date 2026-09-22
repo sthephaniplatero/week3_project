@@ -1,4 +1,13 @@
 require('dotenv').config();
+
+// Must run before anything that opens a MongoDB connection (including
+// connect-mongo's session store, set up inside ./app at require time) — some
+// local routers reject the SRV lookups Node makes for mongodb+srv:// URIs.
+const dns = require('dns');
+if (process.env.DNS_SERVERS) {
+  dns.setServers(process.env.DNS_SERVERS.split(',').map((s) => s.trim()));
+}
+
 const app = require('./app');
 const connectDB = require('./config/db');
 

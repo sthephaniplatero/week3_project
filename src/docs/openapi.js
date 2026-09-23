@@ -22,6 +22,15 @@ const idParam = {
   schema: { type: 'string' },
 };
 
+const categoryIdParam = {
+  name: 'id',
+  in: 'path',
+  required: true,
+  description:
+    'The category `_id` (24-character hex string). Copy it from the response of POST /categories or GET /categories, without quotes.',
+  schema: { type: 'string' },
+};
+
 module.exports = {
   openapi: '3.0.3',
   info: {
@@ -31,7 +40,7 @@ module.exports = {
       'REST API for managing tasks, built with Node.js, Express, and MongoDB. ' +
       'Use "Try it out" on any route to test it against the live database.\n\n' +
       '**Authentication:** Reads (GET) are public. Creating, updating, and deleting ' +
-      'a task requires a logged-in session. Open `/auth/github` in a browser tab on ' +
+      'a task or category requires a logged-in session. Open `/auth/github` in a browser tab on ' +
       'this same site to log in with GitHub first — Swagger UI then sends the session ' +
       'cookie automatically on "Try it out" requests. See the Auth section below.',
   },
@@ -40,6 +49,7 @@ module.exports = {
     { name: 'General', description: 'Status routes' },
     { name: 'Auth', description: 'GitHub OAuth login/logout and account info' },
     { name: 'Tasks', description: 'CRUD operations on tasks' },
+    { name: 'Categories', description: 'CRUD operations on task categories' },
   ],
   paths: {
     '/': {
@@ -55,6 +65,7 @@ module.exports = {
                   message: 'Tasks API is running',
                   health: '/health',
                   tasks: '/tasks',
+                  categories: '/categories',
                 },
               },
             },
@@ -257,6 +268,119 @@ module.exports = {
         },
       },
     },
+    '/categories': {
+      get: {
+        tags: ['Categories'],
+        summary: 'List all categories',
+        responses: {
+          200: {
+            description: 'Array of categories',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { $ref: '#/components/schemas/Category' } },
+              },
+            },
+          },
+          500: errorResponse('Server error', 'Internal server error'),
+        },
+      },
+      post: {
+        tags: ['Categories'],
+        summary: 'Create a category',
+        description: 'Requires a logged-in session (see `/auth/github`).',
+        security: [{ cookieAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CategoryInput' },
+              example: { name: 'Work', description: 'Job-related tasks' },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Category created',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/Category' } },
+            },
+          },
+          400: errorResponse(
+            "Validation error (missing/empty/too long name, duplicate name) or malformed JSON",
+            "name 'Work' already exists"
+          ),
+          401: unauthorizedResponse,
+          500: errorResponse('Server error', 'Internal server error'),
+        },
+      },
+    },
+    '/categories/{id}': {
+      get: {
+        tags: ['Categories'],
+        summary: 'Get a category by id',
+        parameters: [categoryIdParam],
+        responses: {
+          200: {
+            description: 'The category',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/Category' } },
+            },
+          },
+          400: errorResponse('Invalid ObjectId', 'Invalid id: abc'),
+          404: errorResponse('Category not found', 'Category not found'),
+          500: errorResponse('Server error', 'Internal server error'),
+        },
+      },
+      put: {
+        tags: ['Categories'],
+        summary: 'Update a category',
+        description:
+          'Send any subset of `name` and `description`. Fields you omit are left unchanged. ' +
+          'Requires a logged-in session (see `/auth/github`).',
+        security: [{ cookieAuth: [] }],
+        parameters: [categoryIdParam],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CategoryUpdate' },
+              example: { description: 'Job and freelance tasks' },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'The updated category',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/Category' } },
+            },
+          },
+          400: errorResponse(
+            'Invalid ObjectId, validation error, duplicate name, or malformed JSON',
+            'name is required'
+          ),
+          401: unauthorizedResponse,
+          404: errorResponse('Category not found', 'Category not found'),
+          500: errorResponse('Server error', 'Internal server error'),
+        },
+      },
+      delete: {
+        tags: ['Categories'],
+        summary: 'Delete a category',
+        description:
+          'Requires a logged-in session (see `/auth/github`). Deleting a category does not ' +
+          'delete tasks that reference it — they simply keep the now-dangling id.',
+        security: [{ cookieAuth: [] }],
+        parameters: [categoryIdParam],
+        responses: {
+          204: { description: 'Category deleted (no body)' },
+          400: errorResponse('Invalid ObjectId', 'Invalid id: abc'),
+          401: unauthorizedResponse,
+          404: errorResponse('Category not found', 'Category not found'),
+          500: errorResponse('Server error', 'Internal server error'),
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -276,6 +400,13 @@ module.exports = {
           _id: { type: 'string', example: '651f1f1f1f1f1f1f1f1f1f1f' },
           title: { type: 'string', minLength: 1, maxLength: 200, example: 'Buy groceries' },
           done: { type: 'boolean', example: false },
+          category: {
+            description:
+              'The category this task belongs to. `null` if none was set. Returned as the ' +
+              'populated Category object; sent as just its `_id` string in requests.',
+            nullable: true,
+            oneOf: [{ type: 'string', example: '651f1f1f1f1f1f1f1f1f1f1e' }, { $ref: '#/components/schemas/Category' }],
+          },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
           __v: { type: 'integer', example: 0 },
@@ -287,6 +418,12 @@ module.exports = {
         properties: {
           title: { type: 'string', minLength: 1, maxLength: 200, example: 'Buy groceries' },
           done: { type: 'boolean', default: false },
+          category: {
+            type: 'string',
+            nullable: true,
+            description: 'Optional `_id` of an existing category (see GET /categories).',
+            example: '651f1f1f1f1f1f1f1f1f1f1e',
+          },
         },
       },
       TaskUpdate: {
@@ -294,6 +431,38 @@ module.exports = {
         properties: {
           title: { type: 'string', minLength: 1, maxLength: 200, example: 'Buy groceries and milk' },
           done: { type: 'boolean', example: true },
+          category: {
+            type: 'string',
+            nullable: true,
+            description: 'Optional `_id` of an existing category, or `null` to clear it.',
+            example: '651f1f1f1f1f1f1f1f1f1f1e',
+          },
+        },
+      },
+      Category: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string', example: '651f1f1f1f1f1f1f1f1f1f1e' },
+          name: { type: 'string', minLength: 1, maxLength: 50, example: 'Work' },
+          description: { type: 'string', maxLength: 300, example: 'Job-related tasks' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          __v: { type: 'integer', example: 0 },
+        },
+      },
+      CategoryInput: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 50, example: 'Work' },
+          description: { type: 'string', maxLength: 300, example: 'Job-related tasks' },
+        },
+      },
+      CategoryUpdate: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 50, example: 'Work' },
+          description: { type: 'string', maxLength: 300, example: 'Job and freelance tasks' },
         },
       },
       Error: {

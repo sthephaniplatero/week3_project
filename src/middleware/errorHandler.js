@@ -22,6 +22,12 @@ const errorHandler = (err, req, res, next) => {
     return res.status(400).json({ error: 'Invalid JSON in request body' });
   }
 
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue || {})[0] || 'field';
+    const value = err.keyValue ? err.keyValue[field] : '';
+    return res.status(400).json({ error: `${field} '${value}' already exists` });
+  }
+
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 };

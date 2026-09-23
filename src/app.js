@@ -7,6 +7,7 @@ const openapiSpec = require('./docs/openapi');
 const indexRoutes = require('./routes/index.routes');
 const authRoutes = require('./routes/auth.routes');
 const tasksRoutes = require('./routes/tasks.routes');
+const categoriesRoutes = require('./routes/categories.routes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 if (!process.env.SESSION_SECRET) {
@@ -44,6 +45,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 app.use('/', indexRoutes);
 app.use('/auth', authRoutes);
 app.use('/tasks', tasksRoutes);
+app.use('/categories', categoriesRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

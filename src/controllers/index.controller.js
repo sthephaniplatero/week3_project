@@ -5,6 +5,7 @@ const getRoot = (req, res) => {
     health: '/health',
     docs: '/api-docs',
     tasks: '/tasks',
+    categories: '/categories',
     auth: {
       loggedIn,
       user: loggedIn ? req.user.username : null,
